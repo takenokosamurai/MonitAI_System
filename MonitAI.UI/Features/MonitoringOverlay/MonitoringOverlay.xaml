@@ -230,10 +230,7 @@
                 </Grid>
             </Border>
         </Grid>
-
-        <!-- Debug Log Overlay -->
         <StackPanel x:Name="DebugLogContainer" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="20,50,20,0">
-            <!-- Toggle Button (Visible when collapsed) -->
             <ui:Button x:Name="DebugLogToggleBtn" 
                        Content="LOG" 
                        Appearance="Secondary"
@@ -241,7 +238,6 @@
                        Visibility="Visible"
                        HorizontalAlignment="Right"/>
 
-            <!-- Log Panel (Visible when expanded) -->
             <Border x:Name="DebugLogPanel" 
                     Background="#CC000000" CornerRadius="8" Padding="10"
                     Visibility="Collapsed"
@@ -258,10 +254,10 @@
                                    Foreground="#AAAAAA"/>
                     </Grid>
                     <TextBox x:Name="DebugLogText" Foreground="#00FF00" FontSize="11" 
-                               FontFamily="Consolas" TextWrapping="Wrap"
-                               Background="Transparent" BorderThickness="0"
-                               IsReadOnly="True" VerticalScrollBarVisibility="Auto"
-                               Height="200" Width="580"/>
+                             FontFamily="Consolas" TextWrapping="Wrap"
+                             Background="Transparent" BorderThickness="0"
+                             IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                             Height="200" Width="580"/>
                 </StackPanel>
             </Border>
         </StackPanel>

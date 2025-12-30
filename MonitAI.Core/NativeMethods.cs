@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace MonitAI.Core
 {
-    internal static class NativeMethods
+    public static class NativeMethods
     {
         // 画面ロック
         [DllImport("user32.dll")]
@@ -57,5 +57,42 @@ namespace MonitAI.Core
         // DPI設定
         [DllImport("user32.dll")]
         public static extern bool SetProcessDPIAware();
+
+        // ▼▼▼ ウィンドウ制御用定数 ▼▼▼
+        public const int WM_SYSCOMMAND = 0x0112;
+        
+        public const int SC_SIZE     = 0xF000;
+        public const int SC_MINIMIZE = 0xF020;
+        public const int SC_MAXIMIZE = 0xF030;
+        public const int SC_CLOSE    = 0xF060;
+        
+        // ウィンドウスタイル操作用（念のため保持）
+        [DllImport("user32.dll", EntryPoint = "GetWindowLongPtr")]
+        private static extern IntPtr GetWindowLongPtr64(IntPtr hWnd, int nIndex);
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
+        private static extern int GetWindowLong32(IntPtr hWnd, int nIndex);
+
+        public static int GetWindowLong(IntPtr hWnd, int nIndex)
+        {
+            return (IntPtr.Size == 8) ? (int)GetWindowLongPtr64(hWnd, nIndex) : GetWindowLong32(hWnd, nIndex);
+        }
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLongPtr")]
+        private static extern IntPtr SetWindowLongPtr64(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
+        private static extern int SetWindowLong32(IntPtr hWnd, int nIndex, int dwNewLong);
+
+        public static IntPtr SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong)
+        {
+            return (IntPtr.Size == 8) ? SetWindowLongPtr64(hWnd, nIndex, dwNewLong) : new IntPtr(SetWindowLong32(hWnd, nIndex, dwNewLong));
+        }
+
+        public const int GWL_STYLE = -16;
+        public const int WS_MAXIMIZEBOX = 0x10000;
+        public const int WS_MINIMIZEBOX = 0x20000;
+        public const int WS_THICKFRAME  = 0x40000;
+        // ▲▲▲ 追加ここまで ▲▲▲
     }
 }

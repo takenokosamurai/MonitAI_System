@@ -30,6 +30,13 @@ namespace MonitAI.UI.Features.MonitoringOverlay
         private const double RingRadius = 190;
         private const double CenterX = 200;
         private const double CenterY = 200;
+
+        // ▼▼▼ 追加: ミニモード用定数
+        // layoutsample / 内部400座標系に合わせる（StartPoint=200,10 / Size=190）
+        private const double MiniRingRadius = 190; // 半径（match RingRadius）
+        private const double MiniCenterX = 200;    // 中心のX座標（match CenterX）
+        private const double MiniCenterY = 200;    // 中心のY座標（match CenterY）
+
         private const string SessionFileName = "current_session.json";
 
         private static readonly BrushConverter BrushConverterInstance = new();
@@ -102,7 +109,7 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             _currentSession = session;
             _currentPenaltyLevel = 1;
             _currentPoints = 0;
-            
+
             // UI上のポイント表示もリセット
             AnimateLiquid(0.0);
             if (DebugLogText != null) DebugLogText.Text = "";
@@ -128,7 +135,7 @@ namespace MonitAI.UI.Features.MonitoringOverlay
         public void ToggleMode()
         {
             _isMiniMode = !_isMiniMode;
-            
+
             if (_isMiniMode)
             {
                 NormalMonitorLayout.Visibility = Visibility.Collapsed;
@@ -318,7 +325,7 @@ namespace MonitAI.UI.Features.MonitoringOverlay
                             fs.Seek(-65536, SeekOrigin.End);
                         }
                         string content = sr.ReadToEnd();
-                        
+
                         // 全文表示 (スクロール可能になったため行数制限を撤廃)
                         if (DebugLogText != null)
                         {
@@ -347,7 +354,7 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             // レベル1: 45pt以上
             // レベル2: 90pt以上
             // ...
-            
+
             int newLevel = 1;
             int displayPoints = totalPoints;
 
@@ -365,7 +372,7 @@ namespace MonitAI.UI.Features.MonitoringOverlay
                 // 45になった瞬間 Level 2 (通知あり) に突入し、ゲージはリセットされるイメージか、
                 // あるいは満タンのままか。
                 // ここでは「レベルアップしてゲージリセット」の挙動を再現する。
-                
+
                 newLevel = (totalPoints / PointsPerLevel) + 1;
                 displayPoints = totalPoints % PointsPerLevel;
             }
@@ -454,20 +461,27 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             if (angle <= 0) angle = 0.01;
 
             double radians = (angle - 90) * (Math.PI / 180);
+            bool isLargeArc = angle > 180;
+
+            // 通常モード用の終点計算
             double x = CenterX + RingRadius * Math.Cos(radians);
             double y = CenterY + RingRadius * Math.Sin(radians);
-
             var endPoint = new Point(x, y);
-            bool isLargeArc = angle > 180;
 
             if (ArcSegment != null)
             {
                 ArcSegment.Point = endPoint;
                 ArcSegment.IsLargeArc = isLargeArc;
             }
+
+            // ミニモード用の終点はミニ用の中心・半径で計算する
+            double miniX = MiniCenterX + MiniRingRadius * Math.Cos(radians);
+            double miniY = MiniCenterY + MiniRingRadius * Math.Sin(radians);
+            var miniEndPoint = new Point(miniX, miniY);
+
             if (MiniArcSegment != null)
             {
-                MiniArcSegment.Point = endPoint;
+                MiniArcSegment.Point = miniEndPoint;
                 MiniArcSegment.IsLargeArc = isLargeArc;
             }
         }

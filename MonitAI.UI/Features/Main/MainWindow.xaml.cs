@@ -2,14 +2,13 @@ using System;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Interop; // 必須
 using Wpf.Ui.Appearance;
 using Wpf.Ui.Controls;
+using MonitAI.Core;           // 必須
 
 namespace MonitAI.UI.Features.Main
 {
-    /// <summary>
-    /// メインウィンドウ。すべてのロジックをコードビハインドに統合。
-    /// </summary>
     public partial class MainWindow : FluentWindow
     {
         private double _restoredWidth;
@@ -24,43 +23,85 @@ namespace MonitAI.UI.Features.Main
         private MonitAI.UI.Features.Settings.SettingsPage? _settingsPage;
         private MonitAI.UI.Features.MonitoringOverlay.MonitoringOverlay? _monitoringOverlay;
 
-        /// <summary>
-        /// MainWindowのコンストラクタ。
-        /// </summary>
+        // 監視中フラグ
+        private bool _isMonitoring = false;
+
         public MainWindow()
         {
             InitializeComponent();
         }
 
-        /// <summary>
-        /// ウィンドウ読み込み時の初期化処理。
-        /// </summary>
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            // Snackbarサービスの設定
             var snackbarService = new Wpf.Ui.SnackbarService();
             snackbarService.SetSnackbarPresenter(RootSnackbarPresenter);
 
-            // ContentDialogサービスの設定
             var contentDialogService = new Wpf.Ui.ContentDialogService();
             contentDialogService.SetDialogHost(RootContentDialogPresenter);
 
-            // セットアップページの作成と初期化
             _setupPage = new MonitAI.UI.Features.Setup.SetupPage(snackbarService, contentDialogService);
             _setupPage.StartMonitoringRequested += OnStartMonitoring;
 
-            // 設定ページの作成
             _settingsPage = new MonitAI.UI.Features.Settings.SettingsPage();
 
-            // 監視オーバーレイの作成
             _monitoringOverlay = new MonitAI.UI.Features.MonitoringOverlay.MonitoringOverlay();
             _monitoringOverlay.ToggleMiniModeRequested += OnToggleMiniModeClick;
             _monitoringOverlay.DragMoveRequested += OnDragMoveWindow;
             _monitoringOverlay.StopMonitoringRequested += OnStopMonitoring;
             MonitoringOverlayContainer.Content = _monitoringOverlay;
 
-            // 初期ページとしてSetupPageに遷移
             NavigateToSetup();
+        }
+
+        // ▼▼▼ フック登録 ▼▼▼
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            HwndSource? source = PresentationSource.FromVisual(this) as HwndSource;
+            source?.AddHook(WndProc);
+        }
+
+        /// <summary>
+        /// OSからのウィンドウメッセージを直接監視・ブロックする。
+        /// ショートカットやシステムメニューからの操作をここで防ぐ。
+        /// </summary>
+        private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (!_isMonitoring) return IntPtr.Zero;
+
+            if (msg == NativeMethods.WM_SYSCOMMAND)
+            {
+                int command = wParam.ToInt32() & 0xFFF0;
+
+                // 1. 閉じる・最大化は常にブロック
+                if (command == NativeMethods.SC_CLOSE || command == NativeMethods.SC_MAXIMIZE)
+                {
+                    handled = true;
+                    return IntPtr.Zero;
+                }
+
+                bool isMini = _monitoringOverlay?.IsMiniMode == true;
+
+                if (isMini)
+                {
+                    // 2. ミニモード: リサイズ(SC_SIZE)をブロック、最小化(SC_MINIMIZE)は許可
+                    if (command == NativeMethods.SC_SIZE)
+                    {
+                        handled = true;
+                        return IntPtr.Zero;
+                    }
+                }
+                else
+                {
+                    // 3. 通常モード: 最小化(SC_MINIMIZE)をブロック、リサイズは許可
+                    if (command == NativeMethods.SC_MINIMIZE)
+                    {
+                        handled = true;
+                        return IntPtr.Zero;
+                    }
+                }
+            }
+            return IntPtr.Zero;
         }
 
         private void RootNavigation_SelectionChanged(NavigationView sender, RoutedEventArgs e)
@@ -70,12 +111,8 @@ namespace MonitAI.UI.Features.Main
                 var tag = item.Tag?.ToString();
                 switch (tag)
                 {
-                    case "Setup":
-                        NavigateToSetup();
-                        break;
-                    case "Settings":
-                        NavigateToSettings();
-                        break;
+                    case "Setup": NavigateToSetup(); break;
+                    case "Settings": NavigateToSettings(); break;
                 }
             }
         }
@@ -85,16 +122,10 @@ namespace MonitAI.UI.Features.Main
             if (sender is NavigationViewItem item)
             {
                 var tag = item.Tag?.ToString();
-                System.Diagnostics.Debug.WriteLine($"[ナビゲーション] {item.Content} がクリックされました (Tag: {tag})");
-                
                 switch (tag)
                 {
-                    case "Setup":
-                        NavigateToSetup();
-                        break;
-                    case "Settings":
-                        NavigateToSettings();
-                        break;
+                    case "Setup": NavigateToSetup(); break;
+                    case "Settings": NavigateToSettings(); break;
                 }
             }
         }
@@ -102,49 +133,28 @@ namespace MonitAI.UI.Features.Main
         private void NavigateToSetup()
         {
             if (_setupPage != null && PageContent != null)
-            {
-                System.Diagnostics.Debug.WriteLine("[ナビゲーション] セットアップページに遷移");
                 PageContent.Content = _setupPage;
-            }
         }
 
         private void NavigateToSettings()
         {
             if (_settingsPage != null && PageContent != null)
-            {
-                System.Diagnostics.Debug.WriteLine("[ナビゲーション] 設定ページに遷移");
                 PageContent.Content = _settingsPage;
-            }
         }
 
+        // ▼▼▼ 監視開始時の処理 ▼▼▼
         private void OnStartMonitoring(MonitoringSession session)
         {
             _monitoringOverlay?.Initialize(session);
 
             RootNavigation.Visibility = Visibility.Collapsed;
             MonitoringOverlayContainer.Visibility = Visibility.Visible;
-        }
 
-        private void OnStopMonitoring()
-        {
-            StopAndResetSession();
-        }
+            _isMonitoring = true;
 
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
-        {
-            _setupPage?.SaveUserData();
-        }
-
-        private void OnToggleThemeClick(object sender, RoutedEventArgs e)
-        {
-            OnToggleThemeClick();
-        }
-
-        private void OnToggleThemeClick()
-        {
-            var currentTheme = ApplicationThemeManager.GetAppTheme();
-            ApplicationThemeManager.Apply(
-                currentTheme == ApplicationTheme.Light ? ApplicationTheme.Dark : ApplicationTheme.Light);
+            // 通常モードの設定を適用
+            // リサイズ許可(CanResize)、タイトルバーのボタンは閉じる・最小化・最大化すべて非表示
+            ApplyWindowMode(isMini: false);
         }
 
         private void StopAndResetSession()
@@ -154,11 +164,38 @@ namespace MonitAI.UI.Features.Main
             RootNavigation.Visibility = Visibility.Visible;
             MonitoringOverlayContainer.Visibility = Visibility.Collapsed;
 
+            _isMonitoring = false;
+
+            // 制限解除
+            ResetWindowControls();
+
             if (_monitoringOverlay?.IsMiniMode == true)
             {
                 RestoreWindow();
                 _monitoringOverlay?.ToggleMode();
             }
+        }
+
+        private void OnStopMonitoring()
+        {
+            StopAndResetSession();
+        }
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (_isMonitoring)
+            {
+                e.Cancel = true;
+                return;
+            }
+            _setupPage?.SaveUserData();
+        }
+
+        private void OnToggleThemeClick(object sender, RoutedEventArgs e)
+        {
+            var currentTheme = ApplicationThemeManager.GetAppTheme();
+            ApplicationThemeManager.Apply(
+                currentTheme == ApplicationTheme.Light ? ApplicationTheme.Dark : ApplicationTheme.Light);
         }
 
         private void OnDragMoveWindow(object? sender, MouseButtonEventArgs e)
@@ -169,6 +206,7 @@ namespace MonitAI.UI.Features.Main
             }
         }
 
+        // ▼▼▼ ミニモード切り替え処理 ▼▼▼
         private void OnToggleMiniModeClick(object? sender, EventArgs e)
         {
             if (_monitoringOverlay == null) return;
@@ -177,47 +215,64 @@ namespace MonitAI.UI.Features.Main
 
             if (_monitoringOverlay.IsMiniMode)
             {
+                // === ミニモードへ遷移 ===
                 SaveWindowState();
 
-                if (WindowState == WindowState.Maximized)
-                {
-                    WindowState = WindowState.Normal;
-                }
+                if (WindowState == WindowState.Maximized) WindowState = WindowState.Normal;
 
                 WindowStyle = WindowStyle.None;
+
+                // 【重要】余白を消すための設定
+                ExtendsContentIntoTitleBar = false;
+
                 ResizeMode = ResizeMode.NoResize;
                 Topmost = true;
-                ExtendsContentIntoTitleBar = false;
-                MinWidth = 0;
-                MinHeight = 0;
                 ShowInTaskbar = true;
 
-                // DPIスケールを考慮してサイズと位置を計算
+                // 最小サイズ制限を解除
+                MinWidth = 0;
+                MinHeight = 0;
+
+                // サイズを180x180に固定 (layoutsample準拠)
                 var dpiScale = GetDpiScale();
                 double miniWidth = 180;
                 double miniHeight = 180;
 
                 Width = miniWidth;
                 Height = miniHeight;
+                MaxWidth = miniWidth;
+                MaxHeight = miniHeight;
+
+                // 背景を透明に
                 Background = Brushes.Transparent;
 
-                // DPIスケールを考慮してワークエリア内に配置
+                // 画面右下に配置
                 var area = SystemParameters.WorkArea;
                 Left = area.Right - miniWidth - (20 / dpiScale.X);
                 Top = area.Bottom - miniHeight - (20 / dpiScale.Y);
 
                 MainTitleBar.Visibility = Visibility.Collapsed;
+
+                ApplyWindowMode(isMini: true);
             }
             else
             {
+                // === 通常モードへ復帰 ===
                 RestoreWindow();
+
+                // タイトルバー設定を戻す
+                ExtendsContentIntoTitleBar = true;
+
+                MaxWidth = double.PositiveInfinity;
+                MaxHeight = double.PositiveInfinity;
+
+                Background = (Brush)FindResource("ApplicationBackgroundBrush");
+
+                MainTitleBar.Visibility = Visibility.Visible;
+
+                ApplyWindowMode(isMini: false);
             }
         }
-
-        /// <summary>
-        /// 現在のDPIスケールを取得します。
-        /// </summary>
-        /// <returns>DPIスケール（X, Y）</returns>
         private (double X, double Y) GetDpiScale()
         {
             var source = PresentationSource.FromVisual(this);
@@ -257,22 +312,88 @@ namespace MonitAI.UI.Features.Main
 
         private void Window_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            // 画面幅が800px未満になったらナビゲーションメニューを自動で閉じる
-            if (RootNavigation != null)
+            if (RootNavigation != null && e.NewSize.Width < 800)
             {
-                if (e.NewSize.Width < 800)
-                {
-                    RootNavigation.IsPaneOpen = false;
-                }
+                RootNavigation.IsPaneOpen = false;
             }
-            // Visual Studioの出力ウィンドウに書き出す
-            System.Diagnostics.Debug.WriteLine($"[画面サイズ] 幅: {e.NewSize.Width:F0} x 高さ: {e.NewSize.Height:F0}");
+        }
+
+        // ▼▼▼ ウィンドウ制御の実装 ▼▼▼
+
+        /// <summary>
+        /// モードに応じてWPFのResizeModeと、タイトルバーボタンの表示を切り替える
+        /// </summary>
+        private void ApplyWindowMode(bool isMini)
+        {
+            if (isMini)
+            {
+                // ミニモード: リサイズ不可、最小化可
+                // (WPFのResizeMode.CanMinimizeを使うとリサイズ枠が消える)
+                this.ResizeMode = ResizeMode.CanMinimize;
+
+                // タイトルバー自体が非表示(Collapsed)なのでボタン操作は不要
+            }
+            else
+            {
+                // 通常モード: リサイズ可、最小化・最大化不可
+                // WPF標準では「リサイズ可かつ最小化不可」の設定が存在しない(CanResizeは全部入りになる)
+                // そのため、ResizeModeはCanResizeにしておき、
+                // VisualTreeHelperを使ってボタンを物理的に消す。
+                this.ResizeMode = ResizeMode.CanResize;
+
+                // タイトルバー内のボタンを検索して非表示にする
+                UpdateButtonVisibility(MainTitleBar, showMin: false, showMax: false, showClose: false);
+            }
+        }
+
+        /// <summary>
+        /// 制御解除（すべて元に戻す）
+        /// </summary>
+        private void ResetWindowControls()
+        {
+            this.ResizeMode = ResizeMode.CanResize;
+            // ボタンを再表示
+            UpdateButtonVisibility(MainTitleBar, showMin: true, showMax: true, showClose: true);
+        }
+
+        /// <summary>
+        /// VisualTreeを探索してタイトルバーのボタン(PART_MinimizeButton等)を見つけ出し、Visibilityを制御する
+        /// </summary>
+        private void UpdateButtonVisibility(DependencyObject root, bool showMin, bool showMax, bool showClose)
+        {
+            if (root == null) return;
+
+            int count = VisualTreeHelper.GetChildrenCount(root);
+            for (int i = 0; i < count; i++)
+            {
+                var child = VisualTreeHelper.GetChild(root, i);
+
+                if (child is System.Windows.Controls.Button btn)
+                {
+                    // Wpf.Uiのボタン名はテンプレートで決まっていることが多い
+                    // PART_MinimizeButton, PART_MaximizeButton, PART_CloseButton
+                    // 名前が取れない場合は、ToolTipやCommandで推測することも可能だが、まずは名前で判定
+
+                    if (btn.Name == "PART_MinimizeButton")
+                    {
+                        btn.Visibility = showMin ? Visibility.Visible : Visibility.Collapsed;
+                    }
+                    else if (btn.Name == "PART_MaximizeButton")
+                    {
+                        btn.Visibility = showMax ? Visibility.Visible : Visibility.Collapsed;
+                    }
+                    else if (btn.Name == "PART_CloseButton")
+                    {
+                        btn.Visibility = showClose ? Visibility.Visible : Visibility.Collapsed;
+                    }
+                }
+
+                // 再帰探索
+                UpdateButtonVisibility(child, showMin, showMax, showClose);
+            }
         }
     }
 
-    /// <summary>
-    /// 監視セッションの状態データ。
-    /// </summary>
     public class MonitoringSession
     {
         public bool IsActive { get; set; }
