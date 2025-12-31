@@ -24,8 +24,20 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="40"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0">
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,8,0">
+                    <ui:Button x:Name="FullMinimizeButton" Click="OnMinimizeClick"
+                               Appearance="Transparent" Width="36" Height="36"
+                               ToolTip="最小化"
+                               Foreground="{StaticResource MonitoringTextTertiaryBrush}">
+                        <Border Width="28" Height="28" CornerRadius="6" Background="#22000000" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="−" FontSize="18" FontWeight="Bold" Foreground="{StaticResource MonitoringTextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ui:Button>
+                </StackPanel>
+            </Grid>
 
             <Grid Grid.Row="1" HorizontalAlignment="Center">
                 <Grid.ColumnDefinitions>
@@ -38,6 +50,8 @@
                         <Grid.RenderTransform>
                             <TranslateTransform X="0" Y="0"/>
                         </Grid.RenderTransform>
+
+                        <!-- (moved) Mini mode button was here; now positioned at column boundary -->
 
                         <Grid Width="330" Height="330" HorizontalAlignment="Center" VerticalAlignment="Center">
                             <Grid.Clip>
@@ -105,9 +119,23 @@
                     </Grid>
                 </Viewbox>
 
+                <!-- Mini mode button: align horizontally with InfoPanel start (left of Goal/NG) -->
+                <ui:Button x:Name="MiniModeTimerButton" Grid.Column="1"
+                           Click="OnToggleMiniModeClick"
+                           Icon="{ui:SymbolIcon ArrowMinimize24}"
+                           Appearance="Transparent"
+                           Width="40" Height="40"
+                           HorizontalAlignment="Left" VerticalAlignment="Top"
+                           Margin="-56,64,0,0"
+                           ToolTip="ミニモードに切り替え"
+                           Foreground="{StaticResource MonitoringTextPrimaryBrush}"/>
+
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" MaxWidth="420" x:Name="InfoPanel"
                             HorizontalAlignment="Left">
 
+                    <!-- Mini mode button moved to timer top-right -->
+
+                    <!-- 2) 目標 -->
                     <Border Background="#CC000000" CornerRadius="8" Padding="16,10" Margin="0,0,0,12">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -123,6 +151,7 @@
                         </Grid>
                     </Border>
 
+                    <!-- 3) NG -->
                     <Border x:Name="NgBorder" Background="#CC000000" CornerRadius="8" Padding="16,10">
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -140,25 +169,7 @@
                 </StackPanel>
             </Grid>
 
-            <Border Grid.Row="2" Background="{StaticResource MonitoringSolidBackgroundBrush}" 
-                    Padding="20,16" Margin="24" CornerRadius="8" BorderBrush="{StaticResource MonitoringSurfaceStrokeBrush}" BorderThickness="1">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel VerticalAlignment="Center">
-                        <TextBlock x:Name="StatusText" Text="MONITORING ACTIVE" FontSize="12" FontWeight="Bold"/>
-                        <TextBlock Text="集中力を維持してください" FontSize="12" Foreground="{StaticResource MonitoringTextSecondaryBrush}"/>
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal">
-                        <ui:Button Content="ミニモード" Icon="{ui:SymbolIcon ArrowMinimize24}" 
-                                   Appearance="Secondary" Click="OnToggleMiniModeClick" />
-                    </StackPanel>
-                </Grid>
-            </Border>
+                    <!-- Footer removed; mini-mode button moved into the InfoPanel above. -->
         </Grid>
 
         <Grid x:Name="MiniMonitorLayout" Width="180" Height="180" MouseLeftButtonDown="OnDragMoveWindow" Visibility="Collapsed">
@@ -227,6 +238,18 @@
                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                ToolTip="通常モードへ戻る"
                                Foreground="{StaticResource MonitoringTextTertiaryBrush}"/>
+
+                    <ui:Button x:Name="MiniMinimizeButton"
+                               Click="OnMinimizeClick"
+                               Appearance="Transparent"
+                               HorizontalAlignment="Right" VerticalAlignment="Top"
+                               Margin="8" Width="32" Height="32" Padding="0"
+                               ToolTip="最小化"
+                               Foreground="{StaticResource MonitoringTextTertiaryBrush}">
+                        <Border Width="24" Height="24" CornerRadius="5" Background="#22000000" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <TextBlock Text="−" FontSize="14" FontWeight="Bold" Foreground="{StaticResource MonitoringTextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ui:Button>
                 </Grid>
             </Border>
         </Grid>

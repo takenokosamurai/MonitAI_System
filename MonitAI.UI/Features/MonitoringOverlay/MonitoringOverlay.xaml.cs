@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
@@ -255,10 +256,7 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             {
                 MiniLiquidWater.Background = brush;
             }
-            if (StatusText != null)
-            {
-                StatusText.Foreground = brush;
-            }
+            // StatusText removed from UI — no-op here to avoid null refs
         }
 
         private (SymbolRegular icon, string name, string color) GetPenaltyInfo(int level)
@@ -591,6 +589,19 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             ToggleMiniModeRequested?.Invoke(this, EventArgs.Empty);
         }
 
+        private void OnMinimizeClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var win = Window.GetWindow(this);
+                if (win != null)
+                {
+                    win.WindowState = WindowState.Minimized;
+                }
+            }
+            catch { }
+        }
+
         private void OnDragMoveWindow(object sender, MouseButtonEventArgs e)
         {
             if (e.ButtonState == MouseButtonState.Pressed)
@@ -606,12 +617,46 @@ namespace MonitAI.UI.Features.MonitoringOverlay
                 // 展開
                 DebugLogPanel.Visibility = Visibility.Visible;
                 DebugLogToggleBtn.Visibility = Visibility.Collapsed;
+                DumpAvailableSymbols();
             }
             else
             {
                 // 縮小
                 DebugLogPanel.Visibility = Visibility.Collapsed;
                 DebugLogToggleBtn.Visibility = Visibility.Visible;
+            }
+        }
+
+        // デバッグ: Wpf.Ui の SymbolRegular 列挙を一覧表示（LOG パネルに出力）
+        private void DumpAvailableSymbols()
+        {
+            try
+            {
+                var names = Enum.GetNames(typeof(SymbolRegular));
+                // まずミニマイズに関連する候補を優先表示
+                var filtered = names.Where(n => n.IndexOf("min", StringComparison.OrdinalIgnoreCase) >= 0
+                                               || n.IndexOf("dash", StringComparison.OrdinalIgnoreCase) >= 0
+                                               || n.IndexOf("minus", StringComparison.OrdinalIgnoreCase) >= 0)
+                                     .ToArray();
+
+                string output;
+                if (filtered.Length > 0)
+                    output = string.Join(Environment.NewLine, filtered);
+                else
+                    output = string.Join(Environment.NewLine, names);
+
+                if (DebugLogText != null)
+                {
+                    DebugLogText.Text = output;
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine(output);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"DumpAvailableSymbols error: {ex.Message}");
             }
         }
 
