@@ -27,8 +27,10 @@ namespace MonitAI.UI.Features.MonitoringOverlay
         private MonitoringSession? _session;
         private DispatcherTimer? _timer;
         private DispatcherTimer? _buttonHideTimer;
+        private DispatcherTimer? _chaosTimer; // 高速色変化（カオスモード）
         private bool _isTransparent = false;
         private int _currentPenaltyLevel = 1;
+        private readonly Random _random = new();
 
         // 透過時の背景ブラシ
         private static readonly Brush TransparentOuterBrush = new SolidColorBrush(Color.FromArgb(40, 32, 32, 32));
@@ -195,6 +197,7 @@ namespace MonitAI.UI.Features.MonitoringOverlay
         public void StopTimer()
         {
             _timer?.Stop();
+            StopChaosWater();
         }
 
         private void StartTimer()
@@ -278,22 +281,77 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             {
                 LiquidWater.Background = new SolidColorBrush((Color)ColorConverter.ConvertFromString(color));
             }
+
+            // カオスモード（本番: レベル6で発火、それ以外で停止）
+            if (_currentPenaltyLevel == 6)
+            {
+                StartChaosWater();
+            }
+            else
+            {
+                StopChaosWater();
+            }
         }
+
+        #region Chaos water (高速色ランダム切替)
+
+        private void StartChaosWater()
+        {
+            _chaosTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+            _chaosTimer.Tick -= OnChaosTick;
+            _chaosTimer.Tick += OnChaosTick;
+            _chaosTimer.Start();
+        }
+
+        private void StopChaosWater()
+        {
+            if (_chaosTimer != null)
+            {
+                _chaosTimer.Stop();
+            }
+        }
+
+        private void OnChaosTick(object? sender, EventArgs e)
+        {
+            Color NextColor() => Color.FromRgb((byte)_random.Next(32, 256), (byte)_random.Next(32, 256), (byte)_random.Next(32, 256));
+
+            var brush = new SolidColorBrush(NextColor());
+            brush.Freeze();
+
+            if (LiquidWater != null)
+            {
+                LiquidWater.Background = brush;
+            }
+        }
+
+        #endregion
 
         private (SymbolRegular icon, string name, string color) GetPenaltyInfo(int level)
         {
+            // "きれいな水" から "汚染・危険の蓄積" へイメージを変更
             return level switch
             {
-                1 => (SymbolRegular.Alert24, "通知", "#80DEEA"),
-                2 => (SymbolRegular.Color24, "グレースケール", "#26C6DA"),
-                3 => (SymbolRegular.Warning24, "操作妨害", "#FFA726"),
-                4 => (SymbolRegular.Speaker224, "ビープ音", "#EF5350"),
-                5 => (SymbolRegular.LockClosed24, "画面ロック", "#C62828"),
-                6 => (SymbolRegular.Power24, "シャットダウン", "#4A0000"),
+                // Lv1: 濁った黄緑 (酸・不快感)
+                1 => (SymbolRegular.Alert24, "通知", "#CDDC39"),
+
+                // Lv2: アンバー (警告・汚染)
+                2 => (SymbolRegular.Color24, "グレースケール", "#FFC107"),
+
+                // Lv3: 赤茶/ディープオレンジ (錆・加熱)
+                3 => (SymbolRegular.Warning24, "操作妨害", "#FF5722"),
+
+                // Lv4: 赤 (危険・血)
+                4 => (SymbolRegular.Speaker224, "ビープ音", "#D32F2F"),
+
+                // Lv5: 紫 (毒・侵食)
+                5 => (SymbolRegular.LockClosed24, "画面ロック", "#7B1FA2"),
+
+                // Lv6: ダークスレート (停止・泥・絶望)
+                6 => (SymbolRegular.Power24, "シャットダウン", "#37474F"),
+
                 _ => (SymbolRegular.Checkmark24, "不明", "#808080")
             };
         }
-
         public void AnimateLiquid(double targetScale)
         {
             var animation = new DoubleAnimation
