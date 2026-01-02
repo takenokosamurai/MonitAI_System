@@ -173,7 +173,7 @@
         </Grid>
 
         <Grid x:Name="MiniMonitorLayout" Width="180" Height="180" MouseLeftButtonDown="OnDragMoveWindow" Visibility="Collapsed">
-            <Border Background="{StaticResource MonitoringBackgroundBrush}" CornerRadius="12" BorderBrush="{StaticResource MonitoringSurfaceStrokeBrush}" BorderThickness="1">
+            <Border x:Name="MiniOuterBorder" Background="{StaticResource MonitoringBackgroundBrush}" CornerRadius="12" BorderBrush="{StaticResource MonitoringSurfaceStrokeBrush}" BorderThickness="1">
                 <Grid ClipToBounds="True">
 
                     <Viewbox Margin="12">
@@ -186,7 +186,7 @@
                                 <Grid.Clip>
                                     <EllipseGeometry Center="165,165" RadiusX="165" RadiusY="165"/>
                                 </Grid.Clip>
-                                <Border Background="{StaticResource MonitoringSolidBackgroundBrush}" />
+                                <Border x:Name="MiniInnerBackground" Background="{StaticResource MonitoringSolidBackgroundBrush}" />
                                 <Border x:Name="MiniLiquidWater" 
                                         Height="330" Width="330"
                                         VerticalAlignment="Bottom"
@@ -253,36 +253,9 @@
                 </Grid>
             </Border>
         </Grid>
-        <StackPanel x:Name="DebugLogContainer" VerticalAlignment="Top" HorizontalAlignment="Right" Margin="20,50,20,0">
-            <ui:Button x:Name="DebugLogToggleBtn" 
-                       Content="LOG" 
-                       Appearance="Secondary"
-                       Click="OnDebugLogToggleClick"
-                       Visibility="Visible"
-                       HorizontalAlignment="Right"/>
-
-            <Border x:Name="DebugLogPanel" 
-                    Background="#CC000000" CornerRadius="8" Padding="10"
-                    Visibility="Collapsed"
-                    MaxWidth="600" MaxHeight="300"
-                    Margin="0,4,0,0">
-                <StackPanel>
-                    <Grid Margin="0,0,0,4">
-                        <TextBlock Text="Agent Debug Log" Foreground="#AAAAAA" FontSize="10" VerticalAlignment="Center"/>
-                        <ui:Button Icon="{ui:SymbolIcon Dismiss24}" 
-                                   Appearance="Transparent" 
-                                   HorizontalAlignment="Right"
-                                   Click="OnDebugLogToggleClick" 
-                                   Padding="0" Height="20" Width="20"
-                                   Foreground="#AAAAAA"/>
-                    </Grid>
-                    <TextBox x:Name="DebugLogText" Foreground="#00FF00" FontSize="11" 
-                             FontFamily="Consolas" TextWrapping="Wrap"
-                             Background="Transparent" BorderThickness="0"
-                             IsReadOnly="True" VerticalScrollBarVisibility="Auto"
-                             Height="200" Width="580"/>
-                </StackPanel>
-            </Border>
+        <!-- Debug log container hidden; logs shown in external window (Ctrl+L) -->
+        <StackPanel x:Name="DebugLogContainer" Visibility="Collapsed">
+            <TextBox x:Name="DebugLogText" Visibility="Collapsed"/>
         </StackPanel>
     </Grid>
 </UserControl>

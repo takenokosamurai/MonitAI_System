@@ -25,18 +25,13 @@ namespace MonitAI.UI.Features.MonitoringOverlay
         private bool _isMiniMode;
         private int _currentPenaltyLevel = 1;
         private int _currentPoints = 0;
+        private DebugLogWindow? _debugLogWindow;
+        private string _latestLogContent = string.Empty;
 
         private const int PointsPerLevel = 45; // ユーザー要望により45に変更
-        private const int ShakeAnimationDelayMs = 900;
         private const double RingRadius = 190;
         private const double CenterX = 200;
         private const double CenterY = 200;
-
-        // ▼▼▼ 追加: ミニモード用定数
-        // layoutsample / 内部400座標系に合わせる（StartPoint=200,10 / Size=190）
-        private const double MiniRingRadius = 190; // 半径（match RingRadius）
-        private const double MiniCenterX = 200;    // 中心のX座標（match CenterX）
-        private const double MiniCenterY = 200;    // 中心のY座標（match CenterY）
 
         private const string SessionFileName = "current_session.json";
 
@@ -63,9 +58,39 @@ namespace MonitAI.UI.Features.MonitoringOverlay
         public event Action? RequestThemeToggle;
 
         /// <summary>
+        /// 液体レベル変更イベント（ミニウィンドウ同期用）
+        /// </summary>
+        public event Action<double>? LiquidLevelChanged;
+
+        /// <summary>
+        /// ペナルティレベル変更イベント（ミニウィンドウ同期用）
+        /// </summary>
+        public event Action<int>? PenaltyLevelChanged;
+
+        /// <summary>
+        /// シェイクアニメーション発火イベント（ミニウィンドウ同期用）
+        /// </summary>
+        public event Action? ShakeRequested;
+
+        /// <summary>
         /// ミニモードかどうか。
         /// </summary>
         public bool IsMiniMode => _isMiniMode;
+
+        /// <summary>
+        /// 現在のセッションを取得します。
+        /// </summary>
+        public MonitoringSession? CurrentSession => _currentSession;
+
+        /// <summary>
+        /// 現在のペナルティレベルを取得します。
+        /// </summary>
+        public int CurrentPenaltyLevel => _currentPenaltyLevel;
+
+        /// <summary>
+        /// 現在のポイント数から液体レベル（0.0～1.0）を取得します。
+        /// </summary>
+        public double LiquidScale => (double)_currentPoints / PointsPerLevel;
 
         /// <summary>
         /// MonitoringOverlayのコンストラクタ。
@@ -79,6 +104,14 @@ namespace MonitAI.UI.Features.MonitoringOverlay
 
         private void OnPreviewKeyDown(object sender, KeyEventArgs e)
         {
+            // Ctrl + L -> open log window
+            if (e.Key == Key.L && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                ShowDebugLogWindow();
+                e.Handled = true;
+                return;
+            }
+
             // Ctrl + Up -> +15pt
             if (e.Key == Key.Up && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
             {
@@ -114,6 +147,8 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             // UI上のポイント表示もリセット
             AnimateLiquid(0.0);
             if (DebugLogText != null) DebugLogText.Text = "";
+            _latestLogContent = string.Empty;
+            _debugLogWindow?.SetText(string.Empty);
 
             UpdateGoalDisplay();
             UpdatePenaltyDisplay();
@@ -325,14 +360,13 @@ namespace MonitAI.UI.Features.MonitoringOverlay
                         string content = sr.ReadToEnd();
 
                         // 全文表示 (スクロール可能になったため行数制限を撤廃)
+                        _latestLogContent = content;
                         if (DebugLogText != null)
                         {
-                            // 常に末尾にスクロールさせるために、テキストが変更された場合のみ更新するなどの工夫が必要だが、
-                            // ここでは単純に代入する。ユーザーがスクロール操作中だと戻される可能性があるが、
-                            // リアルタイムログ監視としては許容範囲とする。
                             DebugLogText.Text = content;
                             DebugLogText.ScrollToEnd();
                         }
+                        _debugLogWindow?.SetText(content);
                     }
                 }
                 else
@@ -340,6 +374,8 @@ namespace MonitAI.UI.Features.MonitoringOverlay
                     if (DebugLogText != null && string.IsNullOrEmpty(DebugLogText.Text))
                     {
                         DebugLogText.Text = "Waiting for agent log...";
+                        _latestLogContent = DebugLogText.Text;
+                        _debugLogWindow?.SetText(_latestLogContent);
                     }
                 }
             }
@@ -380,12 +416,36 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             {
                 _currentPenaltyLevel = newLevel;
                 UpdatePenaltyDisplay();
+                
+                // レベルアップ時は水を満タン状態に保つ
+                AnimateLiquid(1.0);
+                LiquidLevelChanged?.Invoke(1.0);
+                
                 ShakeMonitor();
+                // ミニウィンドウに通知
+                PenaltyLevelChanged?.Invoke(_currentPenaltyLevel);
+                ShakeRequested?.Invoke();
+                
+                // シェイク終了後（750ms + 少し余裕）に水をリセット
+                int delayedPoints = displayPoints;
+                _ = Task.Delay(850).ContinueWith(_ =>
+                {
+                    Dispatcher.Invoke(() =>
+                    {
+                        _currentPoints = delayedPoints;
+                        double ratio = (double)_currentPoints / PointsPerLevel;
+                        AnimateLiquid(ratio);
+                        LiquidLevelChanged?.Invoke(ratio);
+                    });
+                });
+                return; // 既にポイント処理したのでここで終了
             }
             else if (newLevel < _currentPenaltyLevel)
             {
                 _currentPenaltyLevel = newLevel;
                 UpdatePenaltyDisplay();
+                // ミニウィンドウに通知
+                PenaltyLevelChanged?.Invoke(_currentPenaltyLevel);
             }
 
             // ポイント表示更新
@@ -394,6 +454,8 @@ namespace MonitAI.UI.Features.MonitoringOverlay
                 _currentPoints = displayPoints;
                 double ratio = (double)_currentPoints / PointsPerLevel;
                 AnimateLiquid(ratio);
+                // ミニウィンドウに通知
+                LiquidLevelChanged?.Invoke(ratio);
             }
         }
 
@@ -455,6 +517,20 @@ namespace MonitAI.UI.Features.MonitoringOverlay
         private void UpdateProgressRing(double progressValue)
         {
             double angle = progressValue * 3.6;
+            
+            // 残りが0以下なら円弧を非表示
+            if (progressValue <= 0)
+            {
+                if (ArcPath != null) ArcPath.Visibility = Visibility.Collapsed;
+                if (MiniArcPath != null) MiniArcPath.Visibility = Visibility.Collapsed;
+                return;
+            }
+            else
+            {
+                if (ArcPath != null) ArcPath.Visibility = Visibility.Visible;
+                if (MiniArcPath != null) MiniArcPath.Visibility = Visibility.Visible;
+            }
+            
             if (angle >= 360) angle = 359.99;
             if (angle <= 0) angle = 0.01;
 
@@ -472,14 +548,10 @@ namespace MonitAI.UI.Features.MonitoringOverlay
                 ArcSegment.IsLargeArc = isLargeArc;
             }
 
-            // ミニモード用の終点はミニ用の中心・半径で計算する
-            double miniX = MiniCenterX + MiniRingRadius * Math.Cos(radians);
-            double miniY = MiniCenterY + MiniRingRadius * Math.Sin(radians);
-            var miniEndPoint = new Point(miniX, miniY);
-
+            // ミニモード用も同じ座標系を使用
             if (MiniArcSegment != null)
             {
-                MiniArcSegment.Point = miniEndPoint;
+                MiniArcSegment.Point = endPoint;
                 MiniArcSegment.IsLargeArc = isLargeArc;
             }
         }
@@ -489,7 +561,7 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             await DebugAddPoints();
         }
 
-        private async Task DebugAddPoints()
+        public async Task DebugAddPoints()
         {
             // Agentにコマンド送信
             try
@@ -507,7 +579,7 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             }
         }
 
-        private async Task DebugSubtractPoints()
+        public async Task DebugSubtractPoints()
         {
             // Agentにコマンド送信 (-15pt)
             try
@@ -540,13 +612,11 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             };
 
             LiquidScaleTransform?.BeginAnimation(ScaleTransform.ScaleYProperty, animation);
-            MiniLiquidScaleTransform?.BeginAnimation(ScaleTransform.ScaleYProperty, animation);
         }
 
         private void ShakeMonitor()
         {
             ShakeElement(MonitorContainer);
-            ShakeElement(MiniMonitorContainer);
         }
 
         private void ShakeElement(FrameworkElement? element)
@@ -575,7 +645,7 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             DebugFinishSession();
         }
 
-        private void DebugFinishSession()
+        public void DebugFinishSession()
         {
             if (_currentSession != null)
             {
@@ -612,51 +682,27 @@ namespace MonitAI.UI.Features.MonitoringOverlay
 
         private void OnDebugLogToggleClick(object sender, RoutedEventArgs e)
         {
-            if (DebugLogPanel.Visibility == Visibility.Collapsed)
+            ShowDebugLogWindow();
+        }
+
+        public void ShowDebugLogWindow()
+        {
+            if (_debugLogWindow == null)
             {
-                // 展開
-                DebugLogPanel.Visibility = Visibility.Visible;
-                DebugLogToggleBtn.Visibility = Visibility.Collapsed;
-                DumpAvailableSymbols();
+                _debugLogWindow = new DebugLogWindow
+                {
+                    Owner = Window.GetWindow(this)
+                };
+            }
+
+            _debugLogWindow.SetText(_latestLogContent);
+            if (_debugLogWindow.IsVisible)
+            {
+                _debugLogWindow.Activate();
             }
             else
             {
-                // 縮小
-                DebugLogPanel.Visibility = Visibility.Collapsed;
-                DebugLogToggleBtn.Visibility = Visibility.Visible;
-            }
-        }
-
-        // デバッグ: Wpf.Ui の SymbolRegular 列挙を一覧表示（LOG パネルに出力）
-        private void DumpAvailableSymbols()
-        {
-            try
-            {
-                var names = Enum.GetNames(typeof(SymbolRegular));
-                // まずミニマイズに関連する候補を優先表示
-                var filtered = names.Where(n => n.IndexOf("min", StringComparison.OrdinalIgnoreCase) >= 0
-                                               || n.IndexOf("dash", StringComparison.OrdinalIgnoreCase) >= 0
-                                               || n.IndexOf("minus", StringComparison.OrdinalIgnoreCase) >= 0)
-                                     .ToArray();
-
-                string output;
-                if (filtered.Length > 0)
-                    output = string.Join(Environment.NewLine, filtered);
-                else
-                    output = string.Join(Environment.NewLine, names);
-
-                if (DebugLogText != null)
-                {
-                    DebugLogText.Text = output;
-                }
-                else
-                {
-                    System.Diagnostics.Debug.WriteLine(output);
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"DumpAvailableSymbols error: {ex.Message}");
+                _debugLogWindow.Show();
             }
         }
 
