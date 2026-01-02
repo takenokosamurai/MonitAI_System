@@ -1,5 +1,4 @@
 using System.Windows;
-using System.Windows.Media;
 using Wpf.Ui.Appearance;
 
 namespace MonitAI.UI
@@ -16,57 +15,14 @@ namespace MonitAI.UI
         {
             base.OnStartup(e);
 
-            // ダークテーマを適用
+            // 初期テーマ適用（以降の切替も ApplicationThemeManager に任せる）
             ApplicationThemeManager.Apply(ApplicationTheme.Dark);
-            ApplyThemeColors(ApplicationTheme.Dark);
-
-            // テーマ変更イベントを購読
-            ApplicationThemeManager.Changed += OnThemeChanged;
 
             // MainWindowを直接インスタンス化
             var mainWindow = new Features.Main.MainWindow();
             mainWindow.Show();
         }
 
-        /// <summary>
-        /// テーマ変更時のハンドラー
-        /// </summary>
-        private void OnThemeChanged(ApplicationTheme currentApplicationTheme, Color systemAccent)
-        {
-            ApplyThemeColors(currentApplicationTheme);
-        }
-
-        /// <summary>
-        /// テーマに応じた色を適用
-        /// </summary>
-        private void ApplyThemeColors(ApplicationTheme theme)
-        {
-            var resources = Current.Resources;
-
-            if (theme == ApplicationTheme.Light)
-            {
-                // Light theme colors
-                resources["ApplicationBackgroundColor"] = resources["LightApplicationBackgroundColor"];
-                resources["SolidBackgroundFillColorBaseColor"] = resources["LightSolidBackgroundFillColorBaseColor"];
-                resources["TextFillColorPrimaryColor"] = resources["LightTextFillColorPrimaryColor"];
-                resources["TextFillColorSecondaryColor"] = resources["LightTextFillColorSecondaryColor"];
-                resources["TextFillColorTertiaryColor"] = resources["LightTextFillColorTertiaryColor"];
-                resources["ControlFillColorSecondaryColor"] = resources["LightControlFillColorSecondaryColor"];
-                resources["SurfaceStrokeColorDefaultColor"] = resources["LightSurfaceStrokeColorDefaultColor"];
-                resources["ControlStrokeColorDefaultColor"] = resources["LightControlStrokeColorDefaultColor"];
-            }
-            else
-            {
-                // Dark theme colors
-                resources["ApplicationBackgroundColor"] = resources["DarkApplicationBackgroundColor"];
-                resources["SolidBackgroundFillColorBaseColor"] = resources["DarkSolidBackgroundFillColorBaseColor"];
-                resources["TextFillColorPrimaryColor"] = resources["DarkTextFillColorPrimaryColor"];
-                resources["TextFillColorSecondaryColor"] = resources["DarkTextFillColorSecondaryColor"];
-                resources["TextFillColorTertiaryColor"] = resources["DarkTextFillColorTertiaryColor"];
-                resources["ControlFillColorSecondaryColor"] = resources["DarkControlFillColorSecondaryColor"];
-                resources["SurfaceStrokeColorDefaultColor"] = resources["DarkSurfaceStrokeColorDefaultColor"];
-                resources["ControlStrokeColorDefaultColor"] = resources["DarkControlStrokeColorDefaultColor"];
-            }
-        }
+        // テーマ配色は Wpf.Ui の ThemesDictionary に委ねる。ここでは手動のブラシ上書きは行わない。
     }
 }

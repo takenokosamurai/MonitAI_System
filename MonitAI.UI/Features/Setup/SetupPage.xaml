@@ -10,16 +10,34 @@
       SizeChanged="Page_SizeChanged">
 
     <Page.Resources>
-        <!-- (Source B layout base) -->
-        <SolidColorBrush x:Key="ApplicationBackgroundBrush" Color="#202020"/>
-        <SolidColorBrush x:Key="TextFillColorPrimaryBrush" Color="White"/>
-        <SolidColorBrush x:Key="TextFillColorSecondaryBrush" Color="#C8C8C8"/>
-        <SolidColorBrush x:Key="TextFillColorTertiaryBrush" Color="#808080"/>
-        <SolidColorBrush x:Key="ControlFillColorSecondaryBrush" Color="#19FFFFFF"/>
-        <SolidColorBrush x:Key="SolidBackgroundFillColorBaseBrush" Color="#2D2D2D"/>
-        <SolidColorBrush x:Key="SurfaceStrokeColorDefaultBrush" Color="#404040"/>
-        <SolidColorBrush x:Key="SystemControlHighlightAccentBrush" Color="#60CDFF"/>
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter"/>
+
+        <!-- Card hover: Wpf.Ui 標準ブラシを使ってライト/ダーク双方で差分が出るようにする -->
+        <Style x:Key="HoverableCardStyle" TargetType="{x:Type ui:CardControl}" BasedOn="{StaticResource {x:Type ui:CardControl}}">
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceStrokeColorDefaultBrush}"/>
+            <Setter Property="Cursor" Value="Arrow"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- TextBox: テーマブラシに全面委任してライト/ダーク切替時の色ずれを防ぐ -->
+        <Style x:Key="ThemedTextBoxStyle" TargetType="{x:Type ui:TextBox}" BasedOn="{StaticResource {x:Type ui:TextBox}}">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}"/>
+            <Setter Property="CaretBrush" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+            <Style.Triggers>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                    <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorSecondaryBrush}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
     </Page.Resources>
 
     <Grid x:Name="SetupView" Margin="24,8,24,16">
@@ -119,7 +137,7 @@
                                 </Grid>
 
                                 <!-- Goal input -->
-                                <ui:TextBox Grid.Row="1" x:Name="GoalInput"
+                                <ui:TextBox Grid.Row="1" x:Name="GoalInput" Style="{StaticResource ThemedTextBoxStyle}"
                                             PlaceholderText="例: 数学のレポート作成"
                                             AcceptsReturn="True" TextWrapping="Wrap"
                                             MinHeight="60" MaxHeight="90" VerticalContentAlignment="Top"
@@ -140,7 +158,7 @@
                                 </Grid>
 
                                 <!-- NG input -->
-                                <ui:TextBox Grid.Row="3" x:Name="NgInput"
+                                <ui:TextBox Grid.Row="3" x:Name="NgInput" Style="{StaticResource ThemedTextBoxStyle}"
                                             PlaceholderText="例: YouTube, SNS" Icon="{ui:SymbolIcon Prohibited24}"
                                             TextWrapping="Wrap" AcceptsReturn="True"
                                             MinHeight="60" MaxHeight="90" VerticalContentAlignment="Top"

@@ -126,7 +126,7 @@
                            ToolTip="透過切替"
                            Foreground="{StaticResource MiniTextTertiaryBrush}"
                            Opacity="0">
-                    <ui:SymbolIcon x:Name="TransparentButtonIcon" Symbol="Eye24" FontSize="16" Foreground="{StaticResource MiniTextTertiaryBrush}"/>
+                    <ui:SymbolIcon x:Name="TransparentButtonIcon" Symbol="EyeOff24" FontSize="16" Foreground="{StaticResource MiniTextTertiaryBrush}"/>
                 </ui:Button>
             </Grid>
         </Border>

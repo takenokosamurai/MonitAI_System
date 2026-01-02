@@ -467,31 +467,52 @@ namespace MonitAI.UI.Features.Setup
             {
                 Margin = new Thickness(0, 0, 0, 6),
                 CornerRadius = new CornerRadius(6),
-                Background = (Brush)Application.Current.Resources["ControlFillColorSecondaryBrush"],
-                BorderThickness = new Thickness(1),
-                BorderBrush = (Brush)Application.Current.Resources["SurfaceStrokeColorDefaultBrush"]
+                BorderThickness = new Thickness(1)
             };
+
+            // SetResourceReference を使用してテーマ変更に追従させる
+            cardBorder.SetResourceReference(Border.BackgroundProperty, "ControlFillColorSecondaryBrush");
+            cardBorder.SetResourceReference(Border.BorderBrushProperty, "SurfaceStrokeColorDefaultBrush");
+
+            // カード全体のホバー処理は削除し、各ボタン要素（mainButton、アイコンエリア）の
+            // Wpf.Ui 標準ホバースタイルに任せる（ダークモードと同じ動作に統一）
 
             var grid = new Grid();
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1) });
             grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
 
-            var mainButton = new Wpf.Ui.Controls.Button
+            // アイテムエリア: お気に入り/削除ボタンと同じ方式（Border + MouseLeftButtonDown）で統一
+            var mainItemArea = new Border
             {
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch,
-                Appearance = ControlAppearance.Transparent,
-                Tag = item,
-                ToolTip = item.Title,
-                HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                Padding = new Thickness(12, 8, 4, 8),
+                Background = Brushes.Transparent,
                 CornerRadius = new CornerRadius(6, 0, 0, 6),
-                BorderThickness = new Thickness(0)
+                Tag = item,
+                ToolTip = item.Title
             };
-            mainButton.Click += OnQuickItemClick;
+            mainItemArea.MouseLeftButtonDown += (s, e) =>
+            {
+                if (s is FrameworkElement el && el.Tag is SessionItem sessionItem)
+                {
+                    ApplyQuickItem(sessionItem);
+                }
+            };
+            mainItemArea.MouseEnter += (s, e) =>
+            {
+                if (s is Border b)
+                {
+                    b.SetResourceReference(Border.BackgroundProperty, "ControlFillColorDefaultBrush");
+                }
+            };
+            mainItemArea.MouseLeave += (s, e) =>
+            {
+                if (s is Border b)
+                {
+                    b.Background = Brushes.Transparent;
+                }
+            };
 
-            var contentGrid = new Grid();
+            var contentGrid = new Grid { Margin = new Thickness(12, 8, 4, 8) };
             contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(40) });
             contentGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
@@ -500,9 +521,11 @@ namespace MonitAI.UI.Features.Setup
                 Text = $"{item.Minutes}m",
                 FontSize = 14,
                 FontWeight = FontWeights.Bold,
-                VerticalAlignment = VerticalAlignment.Center,
-                Foreground = (Brush)Application.Current.Resources["TextFillColorSecondaryBrush"]
+                VerticalAlignment = VerticalAlignment.Center
             };
+            // 修正: Foregroundを動的参照化
+            timeText.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorSecondaryBrush");
+
             Grid.SetColumn(timeText, 0);
             contentGrid.Children.Add(timeText);
 
@@ -510,13 +533,15 @@ namespace MonitAI.UI.Features.Setup
 
             if (!string.IsNullOrEmpty(item.Timestamp))
             {
-                stackPanel.Children.Add(new TextBlock
+                var timestampBlock = new TextBlock
                 {
                     Text = item.Timestamp,
                     FontSize = 10,
-                    Margin = new Thickness(0, 0, 0, 2),
-                    Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"]
-                });
+                    Margin = new Thickness(0, 0, 0, 2)
+                };
+                // 修正: Foregroundを動的参照化
+                timestampBlock.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorTertiaryBrush");
+                stackPanel.Children.Add(timestampBlock);
             }
 
             stackPanel.Children.Add(new TextBlock
@@ -525,41 +550,53 @@ namespace MonitAI.UI.Features.Setup
                 FontWeight = FontWeights.Medium,
                 FontSize = 13,
                 TextTrimming = TextTrimming.CharacterEllipsis
+                // メインテキストは標準色を継承するため設定不要ですが、明示するなら以下を追加
+                // Foreground = (Brush)Application.Current.Resources["TextFillColorPrimaryBrush"] 
+                // ただしSetResourceReference推奨
             });
 
             if (!string.IsNullOrEmpty(item.NgText))
             {
                 var ngStack = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(0, 2, 0, 0) };
-                ngStack.Children.Add(new SymbolIcon
+
+                var prohibitedIcon = new SymbolIcon
                 {
                     Symbol = SymbolRegular.Prohibited12,
                     FontSize = 10,
-                    Margin = new Thickness(0, 1, 4, 0),
-                    Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"]
-                });
-                ngStack.Children.Add(new TextBlock
+                    Margin = new Thickness(0, 1, 4, 0)
+                };
+                // 修正: Foregroundを動的参照化
+                prohibitedIcon.SetResourceReference(SymbolIcon.ForegroundProperty, "TextFillColorTertiaryBrush");
+                ngStack.Children.Add(prohibitedIcon);
+
+                var ngTextBlock = new TextBlock
                 {
                     Text = item.NgText,
                     FontSize = 11,
-                    TextTrimming = TextTrimming.CharacterEllipsis,
-                    Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"]
-                });
+                    TextTrimming = TextTrimming.CharacterEllipsis
+                };
+                // 修正: Foregroundを動的参照化
+                ngTextBlock.SetResourceReference(TextBlock.ForegroundProperty, "TextFillColorTertiaryBrush");
+                ngStack.Children.Add(ngTextBlock);
+
                 stackPanel.Children.Add(ngStack);
             }
 
             Grid.SetColumn(stackPanel, 1);
             contentGrid.Children.Add(stackPanel);
 
-            mainButton.Content = contentGrid;
-            Grid.SetColumn(mainButton, 0);
-            grid.Children.Add(mainButton);
+            mainItemArea.Child = contentGrid;
+            Grid.SetColumn(mainItemArea, 0);
+            grid.Children.Add(mainItemArea);
 
             var separator = new Border
             {
                 Width = 1,
-                Background = (Brush)Application.Current.Resources["SurfaceStrokeColorDefaultBrush"],
                 Margin = new Thickness(0, 8, 0, 8)
             };
+            // 修正: Backgroundを動的参照化
+            separator.SetResourceReference(Border.BackgroundProperty, "SurfaceStrokeColorDefaultBrush");
+
             Grid.SetColumn(separator, 1);
             grid.Children.Add(separator);
 
@@ -603,27 +640,35 @@ namespace MonitAI.UI.Features.Setup
 
             var actionsPanel = new UniformGrid { Columns = 1, Rows = 2, Margin = new Thickness(0, 2, 0, 2) };
 
+            // 削除ボタン
+            var deleteIcon = new SymbolIcon
+            {
+                Symbol = SymbolRegular.Dismiss16,
+                FontSize = 14
+            };
+            // 修正: アイコン色を動的参照化
+            deleteIcon.SetResourceReference(SymbolIcon.ForegroundProperty, "TextFillColorTertiaryBrush");
+
             actionsPanel.Children.Add(CreateClickableIconArea(
                 item,
                 "削除",
-                new SymbolIcon
-                {
-                    Symbol = SymbolRegular.Dismiss16,
-                    FontSize = 14,
-                    Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"]
-                },
+                deleteIcon,
                 OnDeleteHistoryItemClick));
+
+            // お気に入り追加ボタン（未登録状態）
+            var addFavIcon = new SymbolIcon
+            {
+                Symbol = SymbolRegular.Star24,
+                FontSize = 16,
+                Filled = false
+            };
+            // 修正: アイコン色を動的参照化
+            addFavIcon.SetResourceReference(SymbolIcon.ForegroundProperty, "TextFillColorTertiaryBrush");
 
             actionsPanel.Children.Add(CreateClickableIconArea(
                 item,
                 "お気に入りに追加",
-                new SymbolIcon
-                {
-                    Symbol = SymbolRegular.Star24,
-                    FontSize = 16,
-                    Filled = false,
-                    Foreground = (Brush)Application.Current.Resources["TextFillColorTertiaryBrush"]
-                },
+                addFavIcon,
                 OnFavoriteToggleClick));
 
             visuals.ActionArea.Children.Add(actionsPanel);
@@ -636,19 +681,24 @@ namespace MonitAI.UI.Features.Setup
             {
                 Tag = item,
                 ToolTip = tooltip,
-                Background = Brushes.Transparent
+                Background = Brushes.Transparent,
             };
 
             grid.MouseLeftButtonDown += onClick;
             grid.MouseEnter += (s, e) =>
             {
                 if (s is Grid g)
-                    g.Background = (Brush)Application.Current.Resources["ControlFillColorSecondaryBrush"];
+                {
+                    // SetResourceReference でテーマ追従するホバー背景を設定
+                    g.SetResourceReference(Panel.BackgroundProperty, "ControlFillColorDefaultBrush");
+                }
             };
             grid.MouseLeave += (s, e) =>
             {
                 if (s is Grid g)
+                {
                     g.Background = Brushes.Transparent;
+                }
             };
 
             icon.HorizontalAlignment = HorizontalAlignment.Center;
@@ -657,7 +707,6 @@ namespace MonitAI.UI.Features.Setup
 
             return grid;
         }
-
         #endregion
 
         #region UX Effects (Flash animation)
@@ -690,8 +739,9 @@ namespace MonitAI.UI.Features.Setup
             animationBrush.BeginAnimation(SolidColorBrush.ColorProperty, colorAnimation);
             await Task.Delay(850);
 
-            GoalInput.Background = originalGoalBrush;
-            NgInput.Background = originalNgBrush;
+            // アニメーション後は SetResourceReference で動的リソースを再設定（テーマ変更に追従）
+            GoalInput.SetResourceReference(Control.BackgroundProperty, "ControlFillColorSecondaryBrush");
+            NgInput.SetResourceReference(Control.BackgroundProperty, "ControlFillColorSecondaryBrush");
         }
 
         private void ApplyQuickItem(SessionItem item)
@@ -774,7 +824,7 @@ namespace MonitAI.UI.Features.Setup
 
         private void UpdateServiceConfig(DateTime startTime, double durationMinutes)
         {
-            string solutionRoot = GetSolutionRoot();
+            string? solutionRoot = GetSolutionRoot();
             if (string.IsNullOrEmpty(solutionRoot))
             {
                 Debug.WriteLine("Solution root not found.");
@@ -784,7 +834,7 @@ namespace MonitAI.UI.Features.Setup
             string serviceConfigPath = Path.Combine(solutionRoot, @"MonitAIサービス完成版\settings.json");
 
             DateTime endTime = startTime.AddMinutes(durationMinutes);
-            string agentPath = GetAgentPath();
+            string? agentPath = GetAgentPath();
 
             var config = new
             {
@@ -815,7 +865,7 @@ namespace MonitAI.UI.Features.Setup
 
         private void StartAgentProcess()
         {
-            string agentPath = GetAgentPath();
+            string? agentPath = GetAgentPath();
 
             if (!string.IsNullOrEmpty(agentPath) && File.Exists(agentPath))
             {
