@@ -40,6 +40,14 @@ namespace MonitAI.UI.Features.MonitoringOverlay
         private static readonly BrushConverter BrushConverterInstance = new();
 
         /// <summary>
+        /// セッションファイルのフルパスを取得します。
+        /// </summary>
+        private static string SessionFilePath => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "screenShot2",
+            SessionFileName);
+
+        /// <summary>
         /// ミニモード切り替えリクエストイベント。
         /// </summary>
         public event EventHandler? ToggleMiniModeRequested;
@@ -134,6 +142,103 @@ namespace MonitAI.UI.Features.MonitoringOverlay
             }
         }
 
+
+        /// <summary>
+        /// 保存されたセッションファイルを読み込みます。
+        /// 終了時刻が既に過ぎている場合はnullを返します。
+        /// </summary>
+        public static MonitoringSession? TryLoadSession()
+        {
+            try
+            {
+                if (!File.Exists(SessionFilePath))
+                    return null;
+
+                string json = File.ReadAllText(SessionFilePath);
+                var session = JsonSerializer.Deserialize<MonitoringSession>(json);
+
+                // セッションが存在し、まだ終了していない場合のみ返す
+                if (session != null && session.RemainingSeconds > 0)
+                {
+                    return session;
+                }
+
+                // 既に終了しているセッションは削除
+                File.Delete(SessionFilePath);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"TryLoadSession Error: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 保存されたセッションから復元して監視を再開します。
+        /// Agent側のstatus.jsonからポイント状態も復元します。
+        /// </summary>
+        public void RestoreSession(MonitoringSession session)
+        {
+            if (session == null) return;
+
+            _currentSession = session;
+
+            // Agent側のstatus.jsonからポイント状態を読み込む
+            RestorePointsFromAgent();
+
+            // UI上のポイント表示を反映
+            double ratio = (double)_currentPoints / PointsPerLevel;
+            AnimateLiquid(ratio);
+
+            if (DebugLogText != null) DebugLogText.Text = "";
+            _latestLogContent = string.Empty;
+            _debugLogWindow?.SetText(string.Empty);
+
+            UpdateGoalDisplay();
+            UpdatePenaltyDisplay();
+            StartTimer();
+        }
+
+        /// <summary>
+        /// Agentのstatus.jsonからポイント状態を復元します。
+        /// </summary>
+        private void RestorePointsFromAgent()
+        {
+            try
+            {
+                string appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "screenShot2");
+                string statusPath = Path.Combine(appData, "status.json");
+
+                if (File.Exists(statusPath))
+                {
+                    string json = File.ReadAllText(statusPath);
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("Points", out var pointsProp))
+                    {
+                        int totalPoints = pointsProp.GetInt32();
+
+                        // ポイントからレベルを計算
+                        if (totalPoints < 45)
+                        {
+                            _currentPenaltyLevel = 1;
+                            _currentPoints = totalPoints;
+                        }
+                        else
+                        {
+                            _currentPenaltyLevel = (totalPoints / PointsPerLevel) + 1;
+                            _currentPoints = totalPoints % PointsPerLevel;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"RestorePointsFromAgent Error: {ex.Message}");
+                _currentPenaltyLevel = 1;
+                _currentPoints = 0;
+            }
+        }
 
         /// <summary>
         /// セッションを初期化します。
@@ -772,8 +877,15 @@ namespace MonitAI.UI.Features.MonitoringOverlay
         {
             try
             {
+                // フォルダがなければ作成
+                string? dir = Path.GetDirectoryName(SessionFilePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
                 string json = JsonSerializer.Serialize(session);
-                File.WriteAllText(SessionFileName, json);
+                File.WriteAllText(SessionFilePath, json);
             }
             catch (Exception ex)
             {
@@ -783,9 +895,16 @@ namespace MonitAI.UI.Features.MonitoringOverlay
 
         private void EndSession()
         {
-            if (File.Exists(SessionFileName))
+            try
             {
-                File.Delete(SessionFileName);
+                if (File.Exists(SessionFilePath))
+                {
+                    File.Delete(SessionFilePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"EndSession Error: {ex.Message}");
             }
         }
 

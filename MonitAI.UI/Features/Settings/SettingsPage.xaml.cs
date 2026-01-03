@@ -97,7 +97,7 @@ namespace MonitAI.UI.Features.Settings
                 
                 if (ModelComboBox.SelectedItem is ComboBoxItem selectedItem)
                 {
-                    settings["Model"] = selectedItem.Content.ToString() ?? "gemini-2.5-flash-lite";
+                    settings["Model"] = selectedItem.Content.ToString() ?? "gemini-2.5-flash";
                 }
 
                 // 保存

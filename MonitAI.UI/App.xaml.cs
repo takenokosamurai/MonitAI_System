@@ -15,6 +15,9 @@ namespace MonitAI.UI
         {
             base.OnStartup(e);
 
+            // メインウィンドウを閉じたら他ウィンドウが残っていてもアプリを終了させる
+            Application.Current.ShutdownMode = ShutdownMode.OnMainWindowClose;
+
             // 初期テーマ適用（以降の切替も ApplicationThemeManager に任せる）
             ApplicationThemeManager.Apply(ApplicationTheme.Dark);
 

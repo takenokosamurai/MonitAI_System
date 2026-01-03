@@ -385,7 +385,7 @@ namespace MonitAI.UI.Features.Setup
                 }
                 else
                 {
-                    _favorites.Add(new SessionItem { Title = "英単語暗記", NgText = "スマホ", Minutes = 30 });
+                    _favorites.Add(new SessionItem { Title = "英単語暗記", NgText = "Youtube", Minutes = 30 });
                     _histories.Add(new SessionItem { Title = "読書", Minutes = 45, Timestamp = "サンプル" });
                 }
             }
@@ -807,7 +807,7 @@ namespace MonitAI.UI.Features.Setup
             // API Key & Mode & Model は SettingsPage で設定するため、ここでは上書きしない
             if (!settings.ContainsKey("ApiKey")) settings["ApiKey"] = "";
             if (!settings.ContainsKey("UseApi")) settings["UseApi"] = "False";
-            if (!settings.ContainsKey("Model")) settings["Model"] = "gemini-2.5-flash-lite";
+            if (!settings.ContainsKey("Model")) settings["Model"] = "gemini-2.5-flash";
 
             // EndTime
             DateTime endTime = startTime.AddMinutes(durationMinutes);
@@ -817,7 +817,7 @@ namespace MonitAI.UI.Features.Setup
             string appDataRoaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             settings["CliPath"] = Path.Combine(appDataRoaming, @"npm\gemini.cmd");
 
-            if (!settings.ContainsKey("Model")) settings["Model"] = "gemini-2.5-flash-lite";
+            if (!settings.ContainsKey("Model")) settings["Model"] = "gemini-2.5-flash";
 
             File.WriteAllText(configPath, JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true }));
         }

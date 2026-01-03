@@ -29,7 +29,7 @@ namespace MonitAI.Agent
         private string _apiKey = "";
         private string _rules = "";
         private string _cliPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), @"npm\gemini.cmd");
-        private string _selectedModel = "gemini-2.5-flash-lite"; // デフォルト
+        private string _selectedModel = "gemini-2.5-flash"; // デフォルト
         private DateTime? _endTime = null; // 終了時刻
         private bool _useApi = false; // APIモードかどうか
 
